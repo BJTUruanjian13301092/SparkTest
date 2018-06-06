@@ -2,7 +2,7 @@ package com.example.sparktest.scala.spark
 
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.{SparkConf, SparkContext, sql}
 
@@ -27,11 +27,11 @@ object MySpark {
     //如果是打成jar包运行则需要去掉 setMaster("local")因为在参数中会指定。
     conf.setMaster("local")
 
-    val ssc = new StreamingContext(conf, Seconds(1))
-    val fileRDD = ssc.textFileStream("D:\\projects\\SparkProject\\sparktest\\myFile").cache()
+    val ssc = new StreamingContext(conf, Seconds(20))
+    val fileRDD = ssc.textFileStream("D:\\projects\\SparkProject\\sparktest\\myFile").cache().flatMap(_.split(" ")).map((_,1)).reduceByKey(_+_)
     fileRDD.print()
     ssc.start()
-    ssc.awaitTerminationOrTimeout(2000)
+    ssc.awaitTermination()
   }
 
   /**
@@ -65,14 +65,16 @@ object MySpark {
     val maxCountLine = logData.map(line => line.split(" ").length).reduce((a, b) => Math.max(a, b))
     println("Max line words : " + maxCountLine)
 
-    logData.flatMap(line => line.split(" ")).map((_,1)).reduceByKey(_+_).collect().foreach(println)
+    val logDataRDD = logData.flatMap(line => line.split(" ")).map((_,1)).reduceByKey(_+_)
+    logDataRDD.collect().foreach(println)
+    println(logDataRDD.toDebugString)
 
   }
 
   /**
     * Spark SQL
     */
-  def sparkSQLTest: Unit = {
+  def sparkSQLTest: java.util.List[_] = {
     val spark = SparkSession
       .builder()
       .master("local")
@@ -95,6 +97,13 @@ object MySpark {
     val fileDataDF = spark.createDataFrame(fileData)
     fileDataDF.createOrReplaceTempView("words")
     spark.sql("select * from words").show()
+    spark.sql("select * from words").collect().foreach(println)
+
+    val list = spark.sql("select * from words").rdd.map{
+      case Row(word: String, count: Long) => Words(word, count)
+    }.toJavaRDD().collect()
+
+    return list
   }
 
   /**
