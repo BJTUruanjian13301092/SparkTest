@@ -28,7 +28,7 @@ object MySpark {
     conf.setMaster("local")
 
     val ssc = new StreamingContext(conf, Seconds(20))
-    val fileRDD = ssc.textFileStream("D:\\projects\\SparkProject\\sparktest\\myFile").cache().flatMap(_.split(" ")).map((_,1)).reduceByKey(_+_)
+    val fileRDD = ssc.textFileStream("myFile").cache().flatMap(_.split(" ")).map((_,1)).reduceByKey(_+_)
     fileRDD.print()
     ssc.start()
     ssc.awaitTermination()
